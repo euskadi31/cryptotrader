@@ -1,0 +1,8 @@
+.DS_Store
+vendor/
+var/
+!var/lib/cryptotrader/source/.gitkeep
+!var/lib/cryptotrader/cache/.gitkeep
+*.out
+cryptotrader
+config.yml
