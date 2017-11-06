@@ -10,9 +10,10 @@ import (
 
 // Configuration struct
 type Configuration struct {
-	Logger   *LoggerConfiguration
-	Server   *ServerConfiguration
-	Database *DatabaseConfiguration
+	Logger    *LoggerConfiguration
+	Server    *ServerConfiguration
+	Database  *DatabaseConfiguration
+	Exchanges *ExchangesConfiguration
 }
 
 // NewConfiguration constructor
@@ -28,6 +29,12 @@ func NewConfiguration(options *viper.Viper) *Configuration {
 		},
 		Database: &DatabaseConfiguration{
 			Path: options.GetString("database.path"),
+		},
+		Exchanges: &ExchangesConfiguration{
+			GDAX: &GDAXConfiguration{
+				Key:    options.GetString("exchanges.gdax.key"),
+				Secret: options.GetString("exchanges.gdax.secret"),
+			},
 		},
 	}
 }

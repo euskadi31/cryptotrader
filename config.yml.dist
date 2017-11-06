@@ -6,3 +6,8 @@ server:
 
 database:
   path: /var/lib/cryptotrader
+
+exchanges:
+  gdax:
+    key: ~
+    secret: ~

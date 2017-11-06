@@ -4,6 +4,9 @@
 
 package exchanges
 
+type TickerEvent struct {
+}
+
 // ExchangeProvider interface
 type ExchangeProvider interface {
 }

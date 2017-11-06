@@ -43,3 +43,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/RangelReale/osin"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+  version = "1.2.0"
