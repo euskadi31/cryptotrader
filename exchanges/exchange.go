@@ -4,7 +4,9 @@
 
 package exchanges
 
+// TickerEvent struct
 type TickerEvent struct {
+	Price float64
 }
 
 // ExchangeProvider interface

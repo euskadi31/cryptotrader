@@ -5,85 +5,59 @@
 package gdax
 
 import (
-	"encoding/json"
-	"errors"
-	"net/url"
+	"strconv"
 
 	"github.com/euskadi31/cryptotrader/exchanges"
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	wsBase = "wss://ws-feed.gdax.com"
-)
-
-type wsEvent struct {
-	Type string `json:"type"`
-}
-
 // GDAX struct
 type GDAX struct {
+	ws *WebSocketClient
 }
 
-func (e *GDAX) processEvent(event string, data []byte) (*exchanges.TickerEvent, error) {
-
-	switch event {
-	case "error":
-	case "ticker":
-		return &exchanges.TickerEvent{}, nil
-	default:
-		return nil, errors.New("Bad event type")
+// NewGDAX Exchange
+func NewGDAX() (*GDAX, error) {
+	e := &GDAX{
+		ws: NewWebSocketClient(),
 	}
 
-	return nil, nil
+	if err := e.ws.Connect(); err != nil {
+		return nil, err
+	}
+
+	return e, nil
 }
 
+// Ticker channel
 func (e *GDAX) Ticker() (<-chan *exchanges.TickerEvent, error) {
 	out := make(chan *exchanges.TickerEvent)
 
-	u, err := url.Parse(wsBase)
-	if err != nil {
-		return out, err
-	}
-
-	log.Info().Msgf("GDAX: connecting to %s", u.String())
-
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		return out, err
-	}
+	e.ws.Subscribe(&WebSocketChannel{
+		Name: "ticker",
+		Products: []*WebSocketProduct{
+			&WebSocketProduct{
+				From: "BTC",
+				To:   "EUR",
+			},
+		},
+	})
 
 	go func() {
-		defer c.Close()
 		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Error().Err(err).Msg("")
+			select {
+			case t := <-e.ws.Ticker:
+				f, err := strconv.ParseFloat(t.Price, 64)
+				if err != nil {
+					log.Error().Err(err).Msg("")
+				}
 
-				continue
+				out <- &exchanges.TickerEvent{
+					Price: f,
+				}
 			}
-
-			var evtType wsEvent
-
-			if err := json.Unmarshal(message, &evtType); err != nil {
-				log.Error().Err(err).Msg("")
-
-				continue
-			}
-
-			evt, err := e.processEvent(evtType.Type, message)
-			if err != nil {
-				log.Error().Err(err).Msg("")
-
-				continue
-			}
-
-			out <- evt
 		}
 	}()
-
-	// @TODO: subscribe to ticker channel
 
 	return out, nil
 }
