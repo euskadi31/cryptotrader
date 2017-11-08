@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/VividCortex/ewma"
+  packages = ["."]
+  revision = "b24eb346a94c3ba12c1da1e564dbac1b498a77ce"
+  version = "v1.1.1"
+
+[[projects]]
   name = "github.com/asdine/storm"
   packages = [".","codec","codec/json","index","internal","q"]
   revision = "255212403bcca439778718edf5e2d3d50744eca3"
@@ -202,6 +208,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "21e896145f8fe3f59f3bdc16123cadfbad39dbad63e298d992efed93e9947a08"
+  inputs-digest = "ff1fd11ebc2d71f011f5a1f185ccb715a8db69f9c703b868c953c01f62ed4045"
   solver-name = "gps-cdcl"
   solver-version = 1

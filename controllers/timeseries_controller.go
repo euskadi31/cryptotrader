@@ -7,6 +7,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/VividCortex/ewma"
 	"github.com/euskadi31/cryptotrader/timeseries"
 	"github.com/euskadi31/go-server"
 )
@@ -26,9 +27,22 @@ func NewTimeseriesController(ts *timeseries.Timeseries) *TimeseriesController {
 // Mount implements server.Controller
 func (c *TimeseriesController) Mount(r *server.Router) {
 	r.AddRouteFunc("/api/v1/timeseries", c.GetTimeseriesHandler).Methods(http.MethodGet)
+	r.AddRouteFunc("/api/v1/tranding", c.GetTrandingHandler).Methods(http.MethodGet)
 }
 
 // GetTimeseriesHandler endpoint
 func (c *TimeseriesController) GetTimeseriesHandler(w http.ResponseWriter, r *http.Request) {
 	server.JSON(w, http.StatusOK, c.ts.All())
+}
+
+func (c *TimeseriesController) GetTrandingHandler(w http.ResponseWriter, r *http.Request) {
+	a := ewma.NewMovingAverage(5)
+
+	for _, item := range c.ts.All() {
+		a.Add(item.Value)
+	}
+
+	server.JSON(w, http.StatusOK, map[string]interface{}{
+		"ewma": a.Value(),
+	})
 }
