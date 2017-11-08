@@ -30,30 +30,48 @@ func NewGDAX() (*GDAX, error) {
 }
 
 // Ticker channel
-func (e *GDAX) Ticker() (<-chan *exchanges.TickerEvent, error) {
+func (e *GDAX) Ticker(from string, to string) (<-chan *exchanges.TickerEvent, error) {
+	log.Debug().Msg("Ticker called")
+
 	out := make(chan *exchanges.TickerEvent)
 
-	e.ws.Subscribe(&WebSocketChannel{
-		Name: "ticker",
+	if err := e.ws.Subscribe(&WebSocketChannel{
+		Name: WebSocketChannelTypeTicker,
 		Products: []*WebSocketProduct{
 			&WebSocketProduct{
-				From: "BTC",
-				To:   "EUR",
+				From: from,
+				To:   to,
 			},
 		},
-	})
+	}); err != nil {
+		return out, err
+	}
 
 	go func() {
 		for {
 			select {
 			case t := <-e.ws.Ticker:
-				f, err := strconv.ParseFloat(t.Price, 64)
+				price, err := strconv.ParseFloat(t.Price, 64)
 				if err != nil {
 					log.Error().Err(err).Msg("")
 				}
 
+				size, err := strconv.ParseFloat(t.LastSize, 64)
+				if err != nil {
+					log.Error().Err(err).Msg("")
+				}
+
+				side := exchanges.SideTypeBuy
+
+				if t.Side == "sell" {
+					side = exchanges.SideTypeSell
+				}
+
 				out <- &exchanges.TickerEvent{
-					Price: f,
+					Price: price,
+					Time:  t.Time.Time(),
+					Side:  side,
+					Size:  size,
 				}
 			}
 		}

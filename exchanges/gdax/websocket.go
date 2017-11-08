@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
@@ -35,6 +36,17 @@ const (
 	WebSocketEventTypeMarginProfileUpdate WebSocketEventType = "margin_profile_update"
 )
 
+type WebSocketChannelType string
+
+const (
+	WebSocketChannelTypeLevel3    WebSocketChannelType = "level2"
+	WebSocketChannelTypeTicker    WebSocketChannelType = "ticker"
+	WebSocketChannelTypeHeartbeat WebSocketChannelType = "heartbeat"
+	WebSocketChannelTypeFull      WebSocketChannelType = "full"
+	WebSocketChannelTypeUser      WebSocketChannelType = "user"
+	WebSocketChannelTypeMatches   WebSocketChannelType = "matches"
+)
+
 // WebSocketEvent struct
 type WebSocketEvent struct {
 	Type WebSocketEventType `json:"type"`
@@ -57,7 +69,7 @@ func NewWebSocketProduct(from string, to string) *WebSocketProduct {
 // MarshalJSON implements json.Marshaler.
 // It will encode null if this time is null.
 func (p WebSocketProduct) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%s-%s", p.From, p.To)), nil
+	return []byte(fmt.Sprintf(`"%s-%s"`, p.From, p.To)), nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -84,8 +96,8 @@ func (p *WebSocketProduct) UnmarshalJSON(data []byte) error {
 
 // WebSocketChannel struct
 type WebSocketChannel struct {
-	Name     string              `json:"name"`
-	Products []*WebSocketProduct `json:"product_ids,omitempty"`
+	Name     WebSocketChannelType `json:"name"`
+	Products []*WebSocketProduct  `json:"product_ids,omitempty"`
 }
 
 // WebSocketSubscribeRequest struct
@@ -105,13 +117,15 @@ type WebSocketTickerResponse struct {
 	LastSize string            `json:"last_size"`
 	BestBid  string            `json:"best_bid"`
 	BestAsk  string            `json:"best_ask"`
+	Time     Time              `json:"time"`
 }
 
 // WebSocketClient struct
 type WebSocketClient struct {
-	api    string
-	ws     *websocket.Conn
-	Ticker chan *WebSocketTickerResponse
+	api         string
+	ws          *websocket.Conn
+	isConnected bool
+	Ticker      chan *WebSocketTickerResponse
 }
 
 // NewWebSocketClient constructor
@@ -137,17 +151,21 @@ func (c *WebSocketClient) Connect() error {
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
+		log.Error().Err(err).Msg("")
 		return err
 	}
 
 	c.ws = ws
+
+	c.isConnected = true
+
+	log.Info().Msgf("GDAX WebSocket: connected to %s", u.String())
 
 	return nil
 }
 
 // Subscribe to channel
 func (c *WebSocketClient) Subscribe(channels ...*WebSocketChannel) error {
-
 	e := &WebSocketSubscribeRequest{
 		WebSocketEvent: &WebSocketEvent{
 			Type: WebSocketEventTypeSubscribe,
@@ -182,6 +200,12 @@ func (c *WebSocketClient) Unsubscribe(channels ...*WebSocketChannel) error {
 
 func (c *WebSocketClient) receiver() {
 	for {
+		if !c.isConnected {
+			time.Sleep(time.Millisecond * 100)
+
+			continue
+		}
+
 		_, message, err := c.ws.ReadMessage()
 		if err != nil {
 			log.Error().Err(err).Msg("")

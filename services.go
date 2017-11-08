@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
 	stdlog "log"
@@ -15,6 +16,10 @@ import (
 
 	"github.com/asdine/storm"
 	"github.com/euskadi31/cryptotrader/config"
+	"github.com/euskadi31/cryptotrader/controllers"
+	"github.com/euskadi31/cryptotrader/exchanges"
+	"github.com/euskadi31/cryptotrader/exchanges/gdax"
+	"github.com/euskadi31/cryptotrader/timeseries"
 	"github.com/euskadi31/go-server"
 	"github.com/euskadi31/go-service"
 	"github.com/rs/cors"
@@ -29,10 +34,12 @@ var Service = service.New()
 
 // const of service name
 const (
-	ServiceLoggerKey string = "service.logger"
-	ServiceConfigKey        = "service.config"
-	ServiceRouterKey        = "service.router"
-	ServiceDBKey            = "service.db.storm"
+	ServiceLoggerKey       string = "service.logger"
+	ServiceConfigKey              = "service.config"
+	ServiceRouterKey              = "service.router"
+	ServiceDBKey                  = "service.db.storm"
+	ServiceGDAXExchangeKey        = "service.exchange.gdax"
+	ServiceTimeseriesKey          = "service.timeseries"
 )
 
 func init() {
@@ -115,9 +122,25 @@ func init() {
 		return db
 	})
 
+	Service.Set(ServiceGDAXExchangeKey, func(c *service.Container) interface{} {
+		// cfg := c.Get(ServiceConfigKey).(*config.Configuration)
+
+		ex, err := gdax.NewGDAX()
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+
+		return ex
+	})
+
+	Service.Set(ServiceTimeseriesKey, func(c *service.Container) interface{} {
+		return timeseries.New()
+	})
+
 	Service.Set(ServiceRouterKey, func(c *service.Container) interface{} {
 		logger := c.Get(ServiceLoggerKey).(zerolog.Logger)
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
+		ts := c.Get(ServiceTimeseriesKey).(*timeseries.Timeseries)
 
 		corsHandler := cors.New(cors.Options{
 			AllowCredentials: false,
@@ -155,6 +178,55 @@ func init() {
 		router.Use(corsHandler.Handler)
 
 		router.EnableHealthCheck()
+
+		router.AddController(controllers.NewTimeseriesController(ts))
+
+		ex := Service.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider)
+
+		go func() {
+			file, err := os.OpenFile("history.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+			if err != nil {
+				log.Error().Err(err).Msg("")
+			}
+			defer file.Close()
+
+			writer := csv.NewWriter(file)
+			defer writer.Flush()
+
+			log.Info().Msg("Call Ticker")
+			c, err := ex.Ticker("BTC", "EUR")
+			if err != nil {
+				log.Error().Err(err).Msg("")
+			}
+
+			for ticker := range c {
+				if ticker.Time.IsZero() {
+					continue
+				}
+
+				ts.Add(ticker.Time.Unix(), ticker.Price)
+
+				if err := writer.Write([]string{
+					fmt.Sprintf("%d", ticker.Time.Unix()),
+					fmt.Sprintf("%f", ticker.Price),
+				}); err != nil {
+					log.Error().Err(err).Msg("CSV write failed")
+				}
+
+				writer.Flush()
+
+				msg := log.Info().
+					Str("side", string(ticker.Side)).
+					Float64("volume", ticker.Size).
+					Time("time", ticker.Time)
+
+				if ticker.Side == exchanges.SideTypeSell {
+					msg.Msgf("BTC Price: %f ↘", ticker.Price)
+				} else {
+					msg.Msgf("BTC Price: %f ↗", ticker.Price)
+				}
+			}
+		}()
 
 		return router
 	})

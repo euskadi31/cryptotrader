@@ -6,3 +6,4 @@ var/
 *.out
 cryptotrader
 config.yml
+history.csv
