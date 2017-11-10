@@ -35,6 +35,7 @@ func (c *TimeseriesController) GetTimeseriesHandler(w http.ResponseWriter, r *ht
 	server.JSON(w, http.StatusOK, c.ts.All())
 }
 
+// GetTrandingHandler endpoint
 func (c *TimeseriesController) GetTrandingHandler(w http.ResponseWriter, r *http.Request) {
 	a := ewma.NewMovingAverage(5)
 

@@ -51,3 +51,7 @@
 [[constraint]]
   name = "github.com/VividCortex/ewma"
   version = "1.1.1"
+
+[[constraint]]
+  name = "github.com/preichenberger/go-gdax"
+  version = "0.3.1"

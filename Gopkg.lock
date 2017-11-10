@@ -110,6 +110,12 @@
   version = "v1.0.1"
 
 [[projects]]
+  name = "github.com/preichenberger/go-gdax"
+  packages = ["."]
+  revision = "94264b146fc3e88c154a00dbda38f3760efd181d"
+  version = "0.3.1"
+
+[[projects]]
   name = "github.com/prometheus/client_golang"
   packages = ["prometheus","prometheus/promhttp"]
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
@@ -208,6 +214,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ff1fd11ebc2d71f011f5a1f185ccb715a8db69f9c703b868c953c01f62ed4045"
+  inputs-digest = "e84ecb311fd9434b717e8a3e01539fc3ebcbe687313f660a6f4db7b2776fe7f5"
   solver-name = "gps-cdcl"
   solver-version = 1

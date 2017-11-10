@@ -8,18 +8,21 @@ import (
 	"strconv"
 
 	"github.com/euskadi31/cryptotrader/exchanges"
+	gdaxclient "github.com/preichenberger/go-gdax"
 	"github.com/rs/zerolog/log"
 )
 
 // GDAX struct
 type GDAX struct {
-	ws *WebSocketClient
+	client *gdaxclient.Client
+	ws     *WebSocketClient
 }
 
 // NewGDAX Exchange
 func NewGDAX() (*GDAX, error) {
 	e := &GDAX{
-		ws: NewWebSocketClient(),
+		client: gdaxclient.NewClient("", "", ""),
+		ws:     NewWebSocketClient(),
 	}
 
 	if err := e.ws.Connect(); err != nil {
