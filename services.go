@@ -141,6 +141,7 @@ func init() {
 		logger := c.Get(ServiceLoggerKey).(zerolog.Logger)
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 		ts := c.Get(ServiceTimeseriesKey).(*timeseries.Timeseries)
+		db := c.Get(ServiceDBKey).(*storm.DB)
 
 		corsHandler := cors.New(cors.Options{
 			AllowCredentials: false,
@@ -180,6 +181,7 @@ func init() {
 		router.EnableHealthCheck()
 
 		router.AddController(controllers.NewTimeseriesController(ts))
+		router.AddController(controllers.NewCampaignController(db))
 
 		ex := Service.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider)
 
