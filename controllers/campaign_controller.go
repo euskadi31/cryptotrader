@@ -23,6 +23,10 @@ type CampaignController struct {
 
 // NewCampaignController constructor
 func NewCampaignController(db *storm.DB) *CampaignController {
+	if err := db.Init(&entity.Campaign{}); err != nil {
+		log.Fatal().Err(err).Msg("Initialize bucket for Campaign")
+	}
+
 	return &CampaignController{
 		db: db,
 	}
