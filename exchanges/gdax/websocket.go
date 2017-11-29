@@ -66,10 +66,14 @@ func NewWebSocketProduct(from string, to string) *WebSocketProduct {
 	}
 }
 
+func (p WebSocketProduct) String() string {
+	return fmt.Sprintf(`"%s-%s"`, p.From, p.To)
+}
+
 // MarshalJSON implements json.Marshaler.
 // It will encode null if this time is null.
 func (p WebSocketProduct) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s-%s"`, p.From, p.To)), nil
+	return []byte(p.String()), nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
