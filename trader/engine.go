@@ -5,6 +5,7 @@
 package trader
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/asdine/storm"
@@ -25,6 +26,12 @@ type SubscribeProductEvent struct {
 	Products []exchanges.Product
 }
 
+// RunTraderEvent struct
+type RunTraderEvent struct {
+	Exchange string
+	Product  exchanges.Product
+}
+
 // Engine struct
 type Engine struct {
 	db          *storm.DB
@@ -33,6 +40,9 @@ type Engine struct {
 	runTickerCh chan *RunTickerEvent
 	productsCh  chan *SubscribeProductEvent
 	doneCh      chan bool
+
+	tradersCh chan *RunTraderEvent
+	traders   map[string]*Trader
 }
 
 // NewEngine trader
@@ -44,6 +54,9 @@ func NewEngine(db *storm.DB, providers exchanges.Manager) *Engine {
 		runTickerCh: make(chan *RunTickerEvent),
 		productsCh:  make(chan *SubscribeProductEvent),
 		doneCh:      make(chan bool),
+
+		tradersCh: make(chan *RunTraderEvent),
+		traders:   make(map[string]*Trader),
 	}
 }
 
@@ -116,6 +129,15 @@ func (e *Engine) trade(provider string, event *exchanges.TickerEvent) {
 func (e *Engine) processEventChannel() {
 	for {
 		select {
+		case evt := <-e.tradersCh:
+			log.Debug().Msgf("Run trader for %s on %s", evt.Product.String(), evt.Exchange)
+
+			trader := NewTrader()
+
+			e.traders[fmt.Sprintf("%s-%s", evt.Exchange, evt.Product.String())] = trader
+
+			go trader.Start()
+
 		case evt := <-e.runTickerCh:
 			log.Debug().Msgf("Run %s Ticker", evt.Provider)
 
@@ -172,20 +194,16 @@ func (e *Engine) initProvider(name string) error {
 	return nil
 }
 
-func (e *Engine) subscribeProduct(name string, products []exchanges.Product) error {
-	// provider already init
-	if _, ok := e.tickers[name]; ok == false {
-		if err := e.initProvider(name); err != nil {
-			return err
-		}
+// SubscribeProduct to engine
+func (e *Engine) SubscribeProduct(exchange string, product exchanges.Product) {
+	if _, ok := e.traders[fmt.Sprintf("%s-%s", exchange, product.String())]; ok {
+		return
 	}
 
-	e.productsCh <- &SubscribeProductEvent{
-		Provider: name,
-		Products: products,
+	e.tradersCh <- &RunTraderEvent{
+		Exchange: exchange,
+		Product:  product,
 	}
-
-	return nil
 }
 
 // SaveCampaign to engine
@@ -201,11 +219,10 @@ func (e *Engine) SaveCampaign(campaign *entity.Campaign) error {
 	}
 
 	if edit == false {
-		if err := e.subscribeProduct(campaign.Provider, []exchanges.Product{
+		e.SubscribeProduct(
+			campaign.Provider,
 			exchanges.NewProductFromString(campaign.ProductID),
-		}); err != nil {
-			return err
-		}
+		)
 	}
 
 	return nil
