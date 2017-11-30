@@ -5,6 +5,9 @@
 package exchanges
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -17,10 +20,11 @@ const (
 
 // TickerEvent struct
 type TickerEvent struct {
-	Price float64
-	Side  SideType
-	Time  time.Time
-	Size  float64
+	Product Product
+	Price   float64
+	Side    SideType
+	Time    time.Time
+	Size    float64
 }
 
 // OrderEvent struct
@@ -29,8 +33,73 @@ type OrderEvent struct {
 	Price float64
 }
 
+// Product struct
+type Product struct {
+	From string
+	To   string
+}
+
+// NewProductFromString create product object
+func NewProductFromString(product string) Product {
+	part := strings.Split(product, "-")
+
+	return Product{
+		From: part[0],
+		To:   part[1],
+	}
+}
+
+// NewProduct create product object
+func NewProduct(from string, to string) Product {
+	return Product{
+		From: from,
+		To:   to,
+	}
+}
+
+func (p Product) String() string {
+	return fmt.Sprintf(`%s-%s`, p.From, p.To)
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this time is null.
+func (p Product) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + p.String() + `"`), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+// It support string
+// and null input.
+func (p *Product) UnmarshalJSON(data []byte) error {
+	var v string
+
+	if len(data) == 0 {
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+
+	part := strings.Split(v, "-")
+
+	p.From = part[0]
+	p.To = part[1]
+
+	return nil
+}
+
 // ExchangeProvider interface
 type ExchangeProvider interface {
-	Ticker(from string, to string) (<-chan *TickerEvent, error)
+	Name() string
+
+	Ticker() TickerProvider
 	// Order(from string, to string) (<-chan *OrderEvent, error)
+}
+
+// TickerProvider interface
+type TickerProvider interface {
+	Subscribe(products ...Product) error
+	Unsubscribe(products ...Product) error
+	Channel() <-chan *TickerEvent
 }

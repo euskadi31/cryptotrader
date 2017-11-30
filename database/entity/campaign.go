@@ -13,29 +13,36 @@ type CampaignState string
 
 // CampaignState enum
 const (
+	CampaignStateSell    CampaignState = "sell"
 	CampaignStateSelling CampaignState = "selling"
+	CampaignStateBuy     CampaignState = "buy"
 	CampaignStateBuying  CampaignState = "buying"
 )
 
 // Campaign struct
 type Campaign struct {
-	ID          int           `db:"id,increment"`
-	Provider    string        `db:"provider" json:"provider"`
-	ProviderRef string        `db:"provider_ref" json:"provider_ref"`
-	ProductID   string        `db:"product_id" json:"product_id"`
-	Volume      float64       `db:"volume" json:"volume"`
-	BuyLimit    float64       `db:"buy_limit" json:"buy_limit"`
-	SellLimit   float64       `db:"sell_limit" json:"sell_limit"`
-	CreatedAt   std.DateTime  `db:"created_at" json:"created_at"`
-	UpdatedAt   std.DateTime  `db:"updated_at" json:"updated_at"`
-	DeletedAt   std.DateTime  `db:"deleted_at" json:"deleted_at"`
-	Orders      []*Order      `db:"-" json:"orders"`
-	State       CampaignState `db:"state" json:"state"`
+	ID            int           `storm:"id,increment"`
+	Provider      string        `storm:"index" json:"provider"`
+	ProviderRef   string        `json:"provider_ref"`
+	ProductID     string        `storm:"index" json:"product_id"`
+	Volume        float64       `json:"volume"`
+	BuyLimit      float64       `json:"buy_limit"`
+	SellLimit     float64       `json:"sell_limit"`
+	SellLimitUnit string        `json:"sell_limit_unit"`
+	CreatedAt     std.DateTime  `json:"created_at"`
+	UpdatedAt     std.DateTime  `json:"updated_at"`
+	Orders        []*Order      `json:"orders"`
+	State         CampaignState `storm:"index" json:"state"`
 }
 
 // AddOrder to Campaign
 func (c *Campaign) AddOrder(order *Order) {
 	c.Orders = append(c.Orders, order)
+}
+
+// IsState check if this state is eq to state param
+func (c Campaign) IsState(state CampaignState) bool {
+	return c.State == state
 }
 
 // IsSelling returns true if campaign is state selling

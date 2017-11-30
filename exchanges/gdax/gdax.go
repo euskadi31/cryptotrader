@@ -32,28 +32,86 @@ func NewGDAX() (*GDAX, error) {
 	return e, nil
 }
 
+// Name of provider
+func (e GDAX) Name() string {
+	return "gdax"
+}
+
 // Ticker channel
-func (e *GDAX) Ticker(from string, to string) (<-chan *exchanges.TickerEvent, error) {
-	log.Debug().Msg("Ticker called")
-
-	out := make(chan *exchanges.TickerEvent)
-
-	if err := e.ws.Subscribe(&WebSocketChannel{
-		Name: WebSocketChannelTypeTicker,
-		Products: []*WebSocketProduct{
-			&WebSocketProduct{
-				From: from,
-				To:   to,
-			},
-		},
-	}); err != nil {
-		return out, err
+func (e *GDAX) Ticker() exchanges.TickerProvider {
+	return &Ticker{
+		ws: e.ws,
 	}
+}
+
+// Ticker struct
+type Ticker struct {
+	ws *WebSocketClient
+}
+
+func (t Ticker) convertProduct(products []exchanges.Product) []*WebSocketProduct {
+	sp := []*WebSocketProduct{}
+
+	for _, p := range products {
+		sp = append(sp, &WebSocketProduct{
+			From: p.From,
+			To:   p.To,
+		})
+	}
+
+	return sp
+}
+
+// Subscribe to product
+func (t *Ticker) Subscribe(products ...exchanges.Product) error {
+	sp := []*WebSocketProduct{}
+
+	for _, p := range products {
+		sp = append(sp, &WebSocketProduct{
+			From: p.From,
+			To:   p.To,
+		})
+	}
+
+	if err := t.ws.Subscribe(&WebSocketChannel{
+		Name:     WebSocketChannelTypeTicker,
+		Products: t.convertProduct(products),
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Unsubscribe to product
+func (t *Ticker) Unsubscribe(products ...exchanges.Product) error {
+	sp := []*WebSocketProduct{}
+
+	for _, p := range products {
+		sp = append(sp, &WebSocketProduct{
+			From: p.From,
+			To:   p.To,
+		})
+	}
+
+	if err := t.ws.Unsubscribe(&WebSocketChannel{
+		Name:     WebSocketChannelTypeTicker,
+		Products: t.convertProduct(products),
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Channel TickerEvent
+func (t *Ticker) Channel() <-chan *exchanges.TickerEvent {
+	out := make(chan *exchanges.TickerEvent)
 
 	go func() {
 		for {
 			select {
-			case t := <-e.ws.Ticker:
+			case t := <-t.ws.Ticker:
 				price, err := strconv.ParseFloat(t.Price, 64)
 				if err != nil {
 					log.Error().Err(err).Msg("")
@@ -71,14 +129,15 @@ func (e *GDAX) Ticker(from string, to string) (<-chan *exchanges.TickerEvent, er
 				}
 
 				out <- &exchanges.TickerEvent{
-					Price: price,
-					Time:  t.Time.Time(),
-					Side:  side,
-					Size:  size,
+					Product: exchanges.NewProduct(t.Product.From, t.Product.To),
+					Price:   price,
+					Time:    t.Time.Time(),
+					Side:    side,
+					Size:    size,
 				}
 			}
 		}
 	}()
 
-	return out, nil
+	return out
 }

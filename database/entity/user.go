@@ -10,20 +10,20 @@ import (
 
 // User struct
 type User struct {
-	ID        int          `db:"id" json:"id"`
-	Email     string       `db:"email" json:"email"`
-	FirstName std.String   `db:"firstname" json:"firstname,omitempty"`
-	LastName  std.String   `db:"lastname" json:"lastname,omitempty"`
-	NickName  string       `db:"nickname" json:"nickname"`
-	UserName  string       `db:"username" json:"username"`
-	Password  string       `db:"password" json:"-"`
-	Salt      string       `db:"salt" json:"salt"`
-	IsEnabled bool         `db:"enabled" json:"enabled"`
-	IsExpired bool         `db:"expired" json:"expired"`
-	IsLocked  bool         `db:"locked" json:"locked"`
-	Timezone  std.String   `db:"timezone" json:"timezone,omitempty"`
-	Locale    std.String   `db:"locale" json:"locale,omitempty"`
-	CreatedAt std.DateTime `db:"created_at" json:"created_at"`
-	UpdatedAt std.DateTime `db:"updated_at" json:"updated_at"`
-	DeletedAt std.DateTime `db:"deleted_at" json:"deleted_at"`
+	ID        int          `storm:"id" json:"id"`
+	Email     string       `storm:"email" json:"email"`
+	FirstName std.String   `storm:"firstname" json:"firstname,omitempty"`
+	LastName  std.String   `storm:"lastname" json:"lastname,omitempty"`
+	NickName  string       `storm:"nickname" json:"nickname"`
+	UserName  string       `storm:"username" json:"username"`
+	Password  string       `storm:"password" json:"-"`
+	Salt      string       `storm:"salt" json:"salt"`
+	IsEnabled bool         `storm:"enabled" json:"enabled"`
+	IsExpired bool         `storm:"expired" json:"expired"`
+	IsLocked  bool         `storm:"locked" json:"locked"`
+	Timezone  std.String   `storm:"timezone" json:"timezone,omitempty"`
+	Locale    std.String   `storm:"locale" json:"locale,omitempty"`
+	CreatedAt std.DateTime `storm:"created_at" json:"created_at"`
+	UpdatedAt std.DateTime `storm:"updated_at" json:"updated_at"`
+	DeletedAt std.DateTime `storm:"deleted_at" json:"deleted_at"`
 }

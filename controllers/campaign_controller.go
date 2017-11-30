@@ -8,27 +8,32 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/asdine/storm"
 	"github.com/euskadi31/cryptotrader/database/entity"
+	"github.com/euskadi31/cryptotrader/trader"
 	"github.com/euskadi31/go-server"
+	"github.com/euskadi31/go-std"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
 
 // CampaignController struct
 type CampaignController struct {
-	db *storm.DB
+	db     *storm.DB
+	engine *trader.Engine
 }
 
 // NewCampaignController constructor
-func NewCampaignController(db *storm.DB) *CampaignController {
+func NewCampaignController(db *storm.DB, engine *trader.Engine) *CampaignController {
 	if err := db.Init(&entity.Campaign{}); err != nil {
 		log.Fatal().Err(err).Msg("Initialize bucket for Campaign")
 	}
 
 	return &CampaignController{
-		db: db,
+		db:     db,
+		engine: engine,
 	}
 }
 
@@ -57,7 +62,9 @@ func (c *CampaignController) GetListCampaignHandler(w http.ResponseWriter, r *ht
 }
 
 func (c *CampaignController) saveCampaign(r *http.Request) (*entity.Campaign, error) {
-	campaign := &entity.Campaign{}
+	campaign := &entity.Campaign{
+		State: entity.CampaignStateBuy,
+	}
 
 	id, isEdit := mux.Vars(r)["id"]
 
@@ -72,11 +79,18 @@ func (c *CampaignController) saveCampaign(r *http.Request) (*entity.Campaign, er
 		}
 
 		campaign.ID = i
+		campaign.UpdatedAt = std.DateTimeFrom(time.Now().UTC())
+	} else {
+		campaign.CreatedAt = std.DateTimeFrom(time.Now().UTC())
 	}
 
-	if err := c.db.Save(campaign); err != nil {
+	if err := c.engine.SaveCampaign(campaign); err != nil {
 		return nil, err
 	}
+
+	/*if err := c.db.Save(campaign); err != nil {
+		return nil, err
+	}*/
 
 	return campaign, nil
 }

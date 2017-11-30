@@ -5,7 +5,6 @@
 package main
 
 import (
-	"encoding/csv"
 	"flag"
 	"fmt"
 	stdlog "log"
@@ -20,6 +19,7 @@ import (
 	"github.com/euskadi31/cryptotrader/exchanges"
 	"github.com/euskadi31/cryptotrader/exchanges/gdax"
 	"github.com/euskadi31/cryptotrader/timeseries"
+	"github.com/euskadi31/cryptotrader/trader"
 	"github.com/euskadi31/go-server"
 	"github.com/euskadi31/go-service"
 	"github.com/rs/cors"
@@ -30,20 +30,22 @@ import (
 )
 
 // Service Container
-var Service = service.New()
+var container = service.New()
 
 // const of service name
 const (
-	ServiceLoggerKey       string = "service.logger"
-	ServiceConfigKey              = "service.config"
-	ServiceRouterKey              = "service.router"
-	ServiceDBKey                  = "service.db.storm"
-	ServiceGDAXExchangeKey        = "service.exchange.gdax"
-	ServiceTimeseriesKey          = "service.timeseries"
+	ServiceLoggerKey          string = "service.logger"
+	ServiceConfigKey                 = "service.config"
+	ServiceRouterKey                 = "service.router"
+	ServiceDBKey                     = "service.db.storm"
+	ServiceExchangeManagerKey        = "service.exchange.manager"
+	ServiceGDAXExchangeKey           = "service.exchange.gdax"
+	ServiceTimeseriesKey             = "service.timeseries"
+	ServiceTraderEngineKey           = "service.trader.engine"
 )
 
 func init() {
-	Service.Set(ServiceLoggerKey, func(c *service.Container) interface{} {
+	container.Set(ServiceLoggerKey, func(c *service.Container) interface{} {
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 
 		logger := zerolog.New(os.Stdout).With().
@@ -67,7 +69,7 @@ func init() {
 		return logger
 	})
 
-	Service.Set(ServiceConfigKey, func(c *service.Container) interface{} {
+	container.Set(ServiceConfigKey, func(c *service.Container) interface{} {
 		var cfgFile string
 		cmd := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
@@ -84,13 +86,13 @@ func init() {
 
 		options.SetDefault("server.port", 8989)
 		options.SetDefault("logger.level", "info")
-		options.SetDefault("logger.prefix", ApplicationName)
+		options.SetDefault("logger.prefix", applicationName)
 		options.SetDefault("database.path", "/var/lib/cryptotrader")
 
 		options.SetConfigName("config") // name of config file (without extension)
 
-		options.AddConfigPath("/etc/" + ApplicationName + "/")   // path to look for the config file in
-		options.AddConfigPath("$HOME/." + ApplicationName + "/") // call multiple times to add many search paths
+		options.AddConfigPath("/etc/" + applicationName + "/")   // path to look for the config file in
+		options.AddConfigPath("$HOME/." + applicationName + "/") // call multiple times to add many search paths
 		options.AddConfigPath(".")
 
 		if port := os.Getenv("PORT"); port != "" {
@@ -109,39 +111,55 @@ func init() {
 		return config.NewConfiguration(options)
 	})
 
-	Service.Set(ServiceDBKey, func(c *service.Container) interface{} {
+	container.Set(ServiceDBKey, func(c *service.Container) interface{} {
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 
 		path := strings.TrimRight(cfg.Database.Path, "/")
 
 		db, err := storm.Open(fmt.Sprintf("%s/cryptotrader.db", path))
 		if err != nil {
-			log.Fatal().Err(err)
+			log.Fatal().Err(err).Msg(ServiceDBKey)
 		}
 
 		return db
 	})
 
-	Service.Set(ServiceGDAXExchangeKey, func(c *service.Container) interface{} {
+	container.Set(ServiceGDAXExchangeKey, func(c *service.Container) interface{} {
 		// cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 
 		ex, err := gdax.NewGDAX()
 		if err != nil {
-			log.Fatal().Err(err)
+			log.Fatal().Err(err).Msg(ServiceGDAXExchangeKey)
 		}
 
 		return ex
 	})
 
-	Service.Set(ServiceTimeseriesKey, func(c *service.Container) interface{} {
+	container.Set(ServiceTimeseriesKey, func(c *service.Container) interface{} {
 		return timeseries.New()
 	})
 
-	Service.Set(ServiceRouterKey, func(c *service.Container) interface{} {
+	container.Set(ServiceExchangeManagerKey, func(c *service.Container) interface{} {
+		manager := exchanges.NewManager()
+
+		manager.Add(c.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider))
+
+		return manager
+	})
+
+	container.Set(ServiceTraderEngineKey, func(c *service.Container) interface{} {
+		db := c.Get(ServiceDBKey).(*storm.DB)
+		manager := c.Get(ServiceExchangeManagerKey).(exchanges.Manager)
+
+		return trader.NewEngine(db, manager)
+	})
+
+	container.Set(ServiceRouterKey, func(c *service.Container) interface{} {
 		logger := c.Get(ServiceLoggerKey).(zerolog.Logger)
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 		ts := c.Get(ServiceTimeseriesKey).(*timeseries.Timeseries)
 		db := c.Get(ServiceDBKey).(*storm.DB)
+		engine := c.Get(ServiceTraderEngineKey).(*trader.Engine)
 
 		corsHandler := cors.New(cors.Options{
 			AllowCredentials: false,
@@ -181,73 +199,61 @@ func init() {
 		router.EnableHealthCheck()
 
 		router.AddController(controllers.NewTimeseriesController(ts))
-		router.AddController(controllers.NewCampaignController(db))
+		router.AddController(controllers.NewCampaignController(db, engine))
 
-		ex := Service.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider)
+		/*
+			ex := c.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider)
 
-		go func() {
-			file, err := os.OpenFile("history.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
-			if err != nil {
-				log.Error().Err(err).Msg("")
-			}
-			defer file.Close()
+			go func() {
+				file, err := os.OpenFile("history.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+				if err != nil {
+					log.Error().Err(err).Msg("")
+				}
+				defer file.Close()
 
-			writer := csv.NewWriter(file)
-			defer writer.Flush()
+				writer := csv.NewWriter(file)
+				defer writer.Flush()
 
-			log.Info().Msg("Call Ticker")
-			c, err := ex.Ticker("BTC", "EUR")
-			if err != nil {
-				log.Error().Err(err).Msg("")
-			}
-
-			for ticker := range c {
-				if ticker.Time.IsZero() {
-					continue
+				log.Info().Msg("Call Ticker")
+				c, err := ex.Ticker(
+					exchanges.NewProduct("BTC", "EUR"),
+					exchanges.NewProduct("ETH", "EUR"),
+					exchanges.NewProduct("LTC", "EUR"),
+				)
+				if err != nil {
+					log.Error().Err(err).Msg("")
 				}
 
-				ts.Add(ticker.Time.Unix(), ticker.Price)
+				for ticker := range c {
+					if ticker.Time.IsZero() {
+						continue
+					}
 
-				if err := writer.Write([]string{
-					fmt.Sprintf("%d", ticker.Time.Unix()),
-					fmt.Sprintf("%f", ticker.Price),
-				}); err != nil {
-					log.Error().Err(err).Msg("CSV write failed")
+					ts.Add(ticker.Time.Unix(), ticker.Price)
+
+					if err := writer.Write([]string{
+						fmt.Sprintf("%d", ticker.Time.Unix()),
+						fmt.Sprintf("%f", ticker.Price),
+					}); err != nil {
+						log.Error().Err(err).Msg("CSV write failed")
+					}
+
+					writer.Flush()
+
+					msg := log.Info().
+						Str("side", string(ticker.Side)).
+						Float64("volume", ticker.Size).
+						Time("time", ticker.Time)
+
+					if ticker.Side == exchanges.SideTypeSell {
+						msg.Msgf("%s Price: %f ↘", ticker.Product.From, ticker.Price)
+					} else {
+						msg.Msgf("%s Price: %f ↗", ticker.Product.From, ticker.Price)
+					}
 				}
-
-				writer.Flush()
-
-				msg := log.Info().
-					Str("side", string(ticker.Side)).
-					Float64("volume", ticker.Size).
-					Time("time", ticker.Time)
-
-				if ticker.Side == exchanges.SideTypeSell {
-					msg.Msgf("BTC Price: %f ↘", ticker.Price)
-				} else {
-					msg.Msgf("BTC Price: %f ↗", ticker.Price)
-				}
-			}
-		}()
+			}()
+		*/
 
 		return router
 	})
-}
-
-// Run Application
-func Run() {
-	_ = Service.Get(ServiceLoggerKey).(zerolog.Logger)
-	cfg := Service.Get(ServiceConfigKey).(*config.Configuration)
-
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-
-	router := Service.Get(ServiceRouterKey).(*server.Router)
-
-	log.Info().Msgf("Server running on %s", addr)
-
-	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
-
-	log.Info().Msg("Server exited")
 }

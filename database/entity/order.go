@@ -11,14 +11,14 @@ import (
 
 // Order struct
 type Order struct {
-	Provider  string             `db:"provider" json:"provider"`
-	ID        string             `db:"id" json:"id"`
-	TradeID   string             `db:"trade_id" json:"trade_id"`
-	Side      exchanges.SideType `db:"side" json:"side"`
-	Size      float64            `db:"size" json:"size"`
-	ProductID string             `db:"product_id" json:"product_id"`
-	Price     float64            `db:"price" json:"price"`
-	CreatedAt std.DateTime       `db:"created_at" json:"created_at"`
-	UpdatedAt std.DateTime       `db:"updated_at" json:"updated_at"`
-	DeletedAt std.DateTime       `db:"deleted_at" json:"deleted_at"`
+	Provider  string             `storm:"provider" json:"provider"`
+	ID        string             `storm:"id" json:"id"`
+	TradeID   string             `storm:"trade_id" json:"trade_id"`
+	Side      exchanges.SideType `storm:"side" json:"side"`
+	Size      float64            `storm:"size" json:"size"`
+	ProductID string             `storm:"product_id" json:"product_id"`
+	Price     float64            `storm:"price" json:"price"`
+	CreatedAt std.DateTime       `storm:"created_at" json:"created_at"`
+	UpdatedAt std.DateTime       `storm:"updated_at" json:"updated_at"`
+	DeletedAt std.DateTime       `storm:"deleted_at" json:"deleted_at"`
 }
