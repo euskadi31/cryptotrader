@@ -49,25 +49,63 @@ func NewEngine(db *storm.DB, providers exchanges.Manager) *Engine {
 
 func (e *Engine) tradeBuying(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign) {
 	if event.Price < campaign.BuyLimit {
-		log.Warn().Msgf("Buying %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
-
-		campaign.State = entity.CampaignStateSelling
-
-		if err := e.db.Save(campaign); err != nil {
-			log.Error().Err(err).Msg("Save Campaign")
-		}
-	}
-}
-
-func (e *Engine) tradeSelling(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign) {
-	if event.Price > campaign.SellLimit {
-		log.Warn().Msgf("Selling %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
-
 		campaign.State = entity.CampaignStateBuying
 
 		if err := e.db.Save(campaign); err != nil {
 			log.Error().Err(err).Msg("Save Campaign")
 		}
+
+		log.Warn().Msgf("Buying %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
+
+		// emulate buying start ----
+		order := &entity.Order{
+			Provider:  campaign.Provider,
+			Side:      exchanges.SideTypeBuy,
+			ProductID: campaign.ProductID,
+			Size:      campaign.Volume,
+			Price:     campaign.Volume * event.Price,
+		}
+
+		if err := e.db.Save(order); err != nil {
+			log.Error().Err(err).Msg("save order failed")
+
+			return
+		}
+
+		campaign.State = entity.CampaignStateSell
+
+		campaign.BuyOrder = order
+		// campaign.AddOrder(order)
+
+		if err := e.db.Save(campaign); err != nil {
+			log.Error().Err(err).Msg("Save Campaign")
+		}
+		// end emulate
+	}
+}
+
+func (e *Engine) tradeSelling(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign) {
+	switch campaign.SellLimitUnit {
+	case "percent":
+		log.Debug().Msgf("Margin: %v", campaign.BuyOrder.GetMarginInPercent(event.Price))
+
+		if campaign.BuyOrder.GetMarginInPercent(event.Price) >= campaign.SellLimit {
+			campaign.State = entity.CampaignStateSelling
+
+			if err := e.db.Save(campaign); err != nil {
+				log.Error().Err(err).Msg("Save Campaign")
+			}
+
+			log.Warn().Msgf("Selling %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
+
+			campaign.State = entity.CampaignStateBuy
+
+			if err := e.db.Save(campaign); err != nil {
+				log.Error().Err(err).Msg("Save Campaign")
+			}
+		}
+	default:
+		log.Error().Msgf("campaign sell limit unit (%s) invalid", campaign.SellLimitUnit)
 	}
 }
 
@@ -103,6 +141,7 @@ func (e *Engine) trade(provider string, event *exchanges.TickerEvent) {
 
 	msg := log.Info().
 		Str("side", string(event.Side)).
+		Int("campaigns", len(campaigns)).
 		Float64("volume", event.Size) /*.
 		Time("time", event.Time)*/
 

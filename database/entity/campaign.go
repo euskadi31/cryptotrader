@@ -31,6 +31,8 @@ type Campaign struct {
 	SellLimitUnit string        `json:"sell_limit_unit"`
 	CreatedAt     std.DateTime  `json:"created_at"`
 	UpdatedAt     std.DateTime  `json:"updated_at"`
+	BuyOrder      *Order        `json:"buy_order"`
+	SellOrder     *Order        `json:"sell_order"`
 	Orders        []*Order      `json:"orders"`
 	State         CampaignState `storm:"index" json:"state"`
 }

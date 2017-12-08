@@ -11,14 +11,34 @@ import (
 
 // Order struct
 type Order struct {
-	Provider  string             `storm:"provider" json:"provider"`
-	ID        string             `storm:"id" json:"id"`
-	TradeID   string             `storm:"trade_id" json:"trade_id"`
-	Side      exchanges.SideType `storm:"side" json:"side"`
-	Size      float64            `storm:"size" json:"size"`
-	ProductID string             `storm:"product_id" json:"product_id"`
-	Price     float64            `storm:"price" json:"price"`
-	CreatedAt std.DateTime       `storm:"created_at" json:"created_at"`
-	UpdatedAt std.DateTime       `storm:"updated_at" json:"updated_at"`
-	DeletedAt std.DateTime       `storm:"deleted_at" json:"deleted_at"`
+	Provider  string             `json:"provider"`
+	ID        int                `storm:"id,increment" json:"id"`
+	TradeID   string             `json:"trade_id"`
+	Side      exchanges.SideType `json:"side"`
+	Size      float64            `json:"size"`
+	ProductID string             `json:"product_id"`
+	Price     float64            `json:"price"`
+	CreatedAt std.DateTime       `json:"created_at"`
+	UpdatedAt std.DateTime       `json:"updated_at"`
+	DeletedAt std.DateTime       `json:"deleted_at"`
+}
+
+// GetBuyingMarketPrice func
+func (o Order) GetBuyingMarketPrice() float64 {
+	return o.Price / o.Size
+}
+
+// GetCurrentPrice from market price
+func (o Order) GetCurrentPrice(marketPrice float64) float64 {
+	return marketPrice * o.Size
+}
+
+// GetMarginInCurrency from market price
+func (o Order) GetMarginInCurrency(marketPrice float64) float64 {
+	return o.GetCurrentPrice(marketPrice) - o.Price
+}
+
+// GetMarginInPercent from market price
+func (o Order) GetMarginInPercent(marketPrice float64) float64 {
+	return 100 * (o.Price / o.GetCurrentPrice(marketPrice))
 }
