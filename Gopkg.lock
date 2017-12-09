@@ -26,6 +26,12 @@
   version = "v1.3.1"
 
 [[projects]]
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/euskadi31/go-server"
   packages = [".","metrics"]
@@ -110,6 +116,12 @@
   version = "v1.0.1"
 
 [[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/preichenberger/go-gdax"
   packages = ["."]
   revision = "94264b146fc3e88c154a00dbda38f3760efd181d"
@@ -188,6 +200,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
+  version = "v1.1.4"
+
+[[projects]]
   name = "github.com/zenazn/goji"
   packages = ["web/mutil"]
   revision = "64eb34159fe53473206c2b3e70fe396a639452f2"
@@ -214,6 +232,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ec1a4e2daba7b5bf3152b5bc8e2656bd22875e47fa06c7b29f8ecae57fa6121a"
+  inputs-digest = "41d8d959542e600b7cf481e0f508bc9fa22130d81bde75b4657b515b3f5aa461"
   solver-name = "gps-cdcl"
   solver-version = 1
