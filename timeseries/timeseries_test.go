@@ -10,8 +10,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestTimeseriesWithSize(t *testing.T) {
+	ts := New(6)
+
+	ts.Add(1, 15)
+	ts.Add(2, 23)
+	ts.Add(3, 45)
+	ts.Add(4, 21)
+	ts.Add(5, 11)
+	ts.Add(6, 9)
+	ts.Add(7, 10)
+
+	assert.Equal(t, 6, ts.Size())
+	assert.Equal(t, []int64{2, 3, 4, 5, 6, 7}, ts.Keys())
+	assert.Equal(t, []float64{23, 45, 21, 11, 9, 10}, ts.Values())
+	assert.Equal(t, float64(45), ts.MaxValue())
+	assert.Equal(t, []float64{11, 9, 10}, ts.GetLatestValues(3))
+	assert.Equal(t, []float64{23, 45, 21, 11, 9, 10}, ts.GetLatestValues(10))
+
+	assert.Equal(t, []*DataPoint{
+		&DataPoint{
+			Time:  2,
+			Value: 23,
+		},
+		&DataPoint{
+			Time:  3,
+			Value: 45,
+		},
+		&DataPoint{
+			Time:  4,
+			Value: 21,
+		},
+		&DataPoint{
+			Time:  5,
+			Value: 11,
+		},
+		&DataPoint{
+			Time:  6,
+			Value: 9,
+		},
+		&DataPoint{
+			Time:  7,
+			Value: 10,
+		},
+	}, ts.All())
+}
+
 func TestTimeseries(t *testing.T) {
-	ts := New()
+	ts := New(6)
 
 	ts.Add(1, 15)
 	ts.Add(2, 23)
@@ -55,7 +101,7 @@ func TestTimeseries(t *testing.T) {
 }
 
 func TestTimeseriesTrendingIncreasing(t *testing.T) {
-	ts := New()
+	ts := New(6)
 
 	ts.Add(1, 15)
 	ts.Add(2, 23)
@@ -71,7 +117,7 @@ func TestTimeseriesTrendingIncreasing(t *testing.T) {
 }
 
 func TestTimeseriesTrendingDecreasing(t *testing.T) {
-	ts := New()
+	ts := New(6)
 
 	ts.Add(1, 38)
 	ts.Add(2, 39)
@@ -87,7 +133,7 @@ func TestTimeseriesTrendingDecreasing(t *testing.T) {
 }
 
 func TestTimeseriesTrendingNeutral(t *testing.T) {
-	ts := New()
+	ts := New(6)
 
 	ts.Add(1, 10)
 	ts.Add(2, 10)
@@ -104,7 +150,7 @@ func TestTimeseriesTrendingNeutral(t *testing.T) {
 
 func BenchmarkTimeseries(b *testing.B) {
 	b.ReportAllocs()
-	ts := New()
+	ts := New(b.N + 20)
 
 	for n := 0; n < (b.N * 2); n++ {
 		ts.Add(int64(n), float64(n*10))
@@ -115,9 +161,18 @@ func BenchmarkTimeseries(b *testing.B) {
 	}
 }
 
+func BenchmarkTimeseriesAddWithSize(b *testing.B) {
+	b.ReportAllocs()
+	ts := New(4)
+
+	for n := 0; n < b.N; n++ {
+		ts.Add(int64(n), float64(n))
+	}
+}
+
 func BenchmarkTimeseriesAdd(b *testing.B) {
 	b.ReportAllocs()
-	ts := New()
+	ts := New(b.N + 20)
 
 	for n := 0; n < b.N; n++ {
 		ts.Add(int64(n), float64(n*10))

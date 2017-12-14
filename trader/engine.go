@@ -5,7 +5,12 @@
 package trader
 
 import (
+	"fmt"
 	"strings"
+
+	"github.com/euskadi31/cryptotrader/trader/algorithms"
+
+	"github.com/euskadi31/cryptotrader/timeseries"
 
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
@@ -29,25 +34,30 @@ type SubscribeProductEvent struct {
 type Engine struct {
 	db          *storm.DB
 	providers   exchanges.Manager
+	algorithms  algorithms.Manager
 	tickers     map[string]exchanges.TickerProvider
+	timeseries  map[string]*timeseries.Timeseries
 	runTickerCh chan *RunTickerEvent
 	productsCh  chan *SubscribeProductEvent
 	doneCh      chan bool
 }
 
 // NewEngine trader
-func NewEngine(db *storm.DB, providers exchanges.Manager) *Engine {
+func NewEngine(db *storm.DB, providers exchanges.Manager, algorithms algorithms.Manager) *Engine {
 	return &Engine{
 		db:          db,
 		providers:   providers,
+		algorithms:  algorithms,
 		tickers:     make(map[string]exchanges.TickerProvider),
+		timeseries:  make(map[string]*timeseries.Timeseries),
 		runTickerCh: make(chan *RunTickerEvent),
 		productsCh:  make(chan *SubscribeProductEvent),
 		doneCh:      make(chan bool),
 	}
 }
 
-func (e *Engine) tradeBuying(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign) {
+/*
+func (e *Engine) tradeBuying(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign, ts *timeseries.Timeseries) {
 	if event.Price < campaign.BuyLimit {
 		campaign.State = entity.CampaignStateBuying
 
@@ -84,32 +94,62 @@ func (e *Engine) tradeBuying(provider string, event *exchanges.TickerEvent, camp
 	}
 }
 
-func (e *Engine) tradeSelling(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign) {
+func (e *Engine) tradeSelling(provider string, event *exchanges.TickerEvent, campaign *entity.Campaign, ts *timeseries.Timeseries) {
 	switch campaign.SellLimitUnit {
 	case "percent":
+		log.Debug().Msgf("Current Price: %v", event.Price)
 		log.Debug().Msgf("Margin: %v", campaign.BuyOrder.GetMarginInPercent(event.Price))
 
-		if campaign.BuyOrder.GetMarginInPercent(event.Price) >= campaign.SellLimit {
-			campaign.State = entity.CampaignStateSelling
+		if campaign.BuyOrder.GetMarginInPercent(event.Price) < campaign.SellLimit {
+			return
+		}
 
-			if err := e.db.Save(campaign); err != nil {
-				log.Error().Err(err).Msg("Save Campaign")
-			}
+		if ts.Size() < 150 {
+			log.Debug().Msg("there are not enough elements in the time series")
 
-			log.Warn().Msgf("Selling %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
+			return
+		}
 
-			campaign.State = entity.CampaignStateBuy
+		a, err := ts.GetTrending(150)
+		if err != nil {
+			log.Error().Err(err).Msg("GetTrending failed")
 
-			if err := e.db.Save(campaign); err != nil {
-				log.Error().Err(err).Msg("Save Campaign")
-			}
+			return
+		}
+
+		b, err := ts.GetTrending(10)
+		if err != nil {
+			log.Error().Err(err).Msg("GetTrending failed")
+
+			return
+		}
+
+		if a != timeseries.TrendTypeIncreasing && b != timeseries.TrendTypeDecreasing {
+			log.Debug().Msg("Not match trend model")
+
+			return
+		}
+
+		campaign.State = entity.CampaignStateSelling
+
+		if err := e.db.Save(campaign); err != nil {
+			log.Error().Err(err).Msg("Save Campaign")
+		}
+
+		log.Warn().Msgf("Selling %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
+
+		campaign.State = entity.CampaignStateBuy
+
+		if err := e.db.Save(campaign); err != nil {
+			log.Error().Err(err).Msg("Save Campaign")
 		}
 	default:
 		log.Error().Msgf("campaign sell limit unit (%s) invalid", campaign.SellLimitUnit)
 	}
 }
+*/
 
-func (e *Engine) trade(provider string, event *exchanges.TickerEvent) {
+func (e *Engine) trade(provider string, event *exchanges.TickerEvent, ts *timeseries.Timeseries) {
 	query := e.db.Select(
 		q.Eq("Provider", provider),
 		q.Eq("ProductID", event.Product.String()),
@@ -128,14 +168,25 @@ func (e *Engine) trade(provider string, event *exchanges.TickerEvent) {
 	}
 
 	for _, campaign := range campaigns {
+		// @TODO: use campaign.Algorithm for get algo
+		algo, err := e.algorithms.Get("trend")
+		if err != nil {
+			log.Error().Err(err).Msg("Get algo failed")
+
+			continue
+		}
+
 		campaign.Orders = []*entity.Order{}
 
 		// todo populate order into campaign
 
 		if campaign.IsState(entity.CampaignStateBuy) {
-			e.tradeBuying(provider, event, campaign)
+			algo.Buy(event, campaign, ts)
+			// e.tradeBuying(provider, event, campaign, ts)
 		} else {
-			e.tradeSelling(provider, event, campaign)
+			algo.Sell(event, campaign, ts)
+
+			// e.tradeSelling(provider, event, campaign, ts)
 		}
 	}
 
@@ -166,7 +217,18 @@ func (e *Engine) processEventChannel() {
 						continue
 					}
 
-					e.trade(evt.Provider, event)
+					key := fmt.Sprintf("%s-%s", evt.Provider, event.Product.String())
+
+					ts, ok := e.timeseries[key]
+					if ok == false {
+						log.Error().Msgf("Cannot get timeserie for %s", key)
+
+						continue
+					}
+
+					ts.Add(event.Time.Unix(), event.Price)
+
+					e.trade(evt.Provider, event, ts)
 				}
 			}()
 
@@ -175,6 +237,12 @@ func (e *Engine) processEventChannel() {
 
 			for _, product := range evt.Products {
 				productsList = append(productsList, product.String())
+
+				key := fmt.Sprintf("%s-%s", evt.Provider, product.String())
+
+				if _, ok := e.timeseries[key]; ok == false {
+					e.timeseries[key] = timeseries.New(5000)
+				}
 			}
 
 			log.Debug().Msgf("Subscribe to product %s on %s exchange", strings.Join(productsList, ", "), evt.Provider)
@@ -292,4 +360,13 @@ func (e *Engine) Stop() error {
 	e.doneCh <- true
 
 	return nil
+}
+
+// GetTimeserie from key {provider}-{product}
+func (e *Engine) GetTimeserie(key string) (*timeseries.Timeseries, error) {
+	if ts, ok := e.timeseries[key]; ok {
+		return ts, nil
+	}
+
+	return nil, fmt.Errorf("timeserie %s not found", key)
 }

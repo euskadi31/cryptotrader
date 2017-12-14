@@ -21,20 +21,22 @@ const (
 
 // Campaign struct
 type Campaign struct {
-	ID            int           `storm:"id,increment"`
-	Provider      string        `storm:"index" json:"provider"`
-	ProviderRef   string        `json:"provider_ref"`
-	ProductID     string        `storm:"index" json:"product_id"`
-	Volume        float64       `json:"volume"`
-	BuyLimit      float64       `json:"buy_limit"`
-	SellLimit     float64       `json:"sell_limit"`
-	SellLimitUnit string        `json:"sell_limit_unit"`
-	CreatedAt     std.DateTime  `json:"created_at"`
-	UpdatedAt     std.DateTime  `json:"updated_at"`
-	BuyOrder      *Order        `json:"buy_order"`
-	SellOrder     *Order        `json:"sell_order"`
-	Orders        []*Order      `json:"orders"`
-	State         CampaignState `storm:"index" json:"state"`
+	ID               int                    `storm:"id,increment"`
+	Provider         string                 `storm:"index" json:"provider"`
+	ProviderRef      string                 `json:"provider_ref"`
+	ProductID        string                 `storm:"index" json:"product_id"`
+	Volume           float64                `json:"volume"`
+	BuyLimit         float64                `json:"buy_limit"`
+	SellLimit        float64                `json:"sell_limit"`
+	SellLimitUnit    string                 `json:"sell_limit_unit"`
+	CreatedAt        std.DateTime           `json:"created_at"`
+	UpdatedAt        std.DateTime           `json:"updated_at"`
+	BuyOrder         *Order                 `json:"buy_order"`
+	SellOrder        *Order                 `json:"sell_order"`
+	Orders           []*Order               `json:"orders"`
+	State            CampaignState          `storm:"index" json:"state"`
+	Algorithm        string                 `json:"algorithm"`
+	AlgorithmOptions map[string]interface{} `json:"algorithm_options"`
 }
 
 // AddOrder to Campaign

@@ -40,5 +40,5 @@ func (o Order) GetMarginInCurrency(marketPrice float64) float64 {
 
 // GetMarginInPercent from market price
 func (o Order) GetMarginInPercent(marketPrice float64) float64 {
-	return 100 * (o.Price / o.GetCurrentPrice(marketPrice))
+	return (o.GetCurrentPrice(marketPrice) - o.Price) / o.Price * 100
 }

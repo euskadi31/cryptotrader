@@ -5,45 +5,46 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/VividCortex/ewma"
-	"github.com/euskadi31/cryptotrader/timeseries"
+	"github.com/gorilla/mux"
+
+	"github.com/euskadi31/cryptotrader/trader"
+
 	"github.com/euskadi31/go-server"
 )
 
 // TimeseriesController struct
 type TimeseriesController struct {
-	ts *timeseries.Timeseries
+	engine *trader.Engine
 }
 
 // NewTimeseriesController constructor
-func NewTimeseriesController(ts *timeseries.Timeseries) *TimeseriesController {
+func NewTimeseriesController(engine *trader.Engine) *TimeseriesController {
 	return &TimeseriesController{
-		ts: ts,
+		engine: engine,
 	}
 }
 
 // Mount implements server.Controller
 func (c *TimeseriesController) Mount(r *server.Router) {
-	r.AddRouteFunc("/api/v1/timeseries", c.GetTimeseriesHandler).Methods(http.MethodGet)
-	r.AddRouteFunc("/api/v1/tranding", c.GetTrandingHandler).Methods(http.MethodGet)
+	r.AddRouteFunc("/api/v1/timeseries/{provider:[a-z]+}/{from:[a-z]+}-{to:[a-z]+}", c.GetTimeseriesHandler).Methods(http.MethodGet)
 }
 
 // GetTimeseriesHandler endpoint
 func (c *TimeseriesController) GetTimeseriesHandler(w http.ResponseWriter, r *http.Request) {
-	server.JSON(w, http.StatusOK, c.ts.All())
-}
+	params := mux.Vars(r)
 
-// GetTrandingHandler endpoint
-func (c *TimeseriesController) GetTrandingHandler(w http.ResponseWriter, r *http.Request) {
-	a := ewma.NewMovingAverage(5)
+	key := fmt.Sprintf("%s-%s-%s", params["provider"], strings.ToUpper(params["from"]), strings.ToUpper(params["to"]))
 
-	for _, item := range c.ts.All() {
-		a.Add(item.Value)
+	ts, err := c.engine.GetTimeserie(key)
+	if err != nil {
+		server.FailureFromError(w, http.StatusNotFound, err)
+
+		return
 	}
 
-	server.JSON(w, http.StatusOK, map[string]interface{}{
-		"ewma": a.Value(),
-	})
+	server.JSON(w, http.StatusOK, ts.All())
 }

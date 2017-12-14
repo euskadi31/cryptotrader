@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/VividCortex/ewma"
-  packages = ["."]
-  revision = "b24eb346a94c3ba12c1da1e564dbac1b498a77ce"
-  version = "v1.1.1"
-
-[[projects]]
   name = "github.com/asdine/storm"
   packages = [".","codec","codec/json","index","internal","q"]
   revision = "255212403bcca439778718edf5e2d3d50744eca3"
@@ -35,19 +29,19 @@
   branch = "master"
   name = "github.com/euskadi31/go-server"
   packages = [".","metrics"]
-  revision = "d33aac72101381e4260ef83fa3d63aeb9b913e77"
+  revision = "d27d03500d37057371540f63716eaf4677b27cc6"
 
 [[projects]]
   branch = "master"
   name = "github.com/euskadi31/go-service"
   packages = ["."]
-  revision = "f8d8c4eab01ab6c71b2512a100adb8b17634fbb6"
+  revision = "a5fa5feaf5ad54fa1f35e09aba36b9592262d43e"
 
 [[projects]]
   branch = "master"
   name = "github.com/euskadi31/go-std"
   packages = ["."]
-  revision = "54c19c5dcf93372efe3e9d65afb6eeed9a4583ce"
+  revision = "9c901318e414de86efca19f22c45f102fcfe631a"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -59,7 +53,7 @@
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -68,10 +62,16 @@
   version = "v1.1"
 
 [[projects]]
+  name = "github.com/gorilla/handlers"
+  packages = ["."]
+  revision = "90663712d74cb411cbef281bc1e08c19d1a76145"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "24fca303ac6da784b9e8269f724ddeb0b2eea5e7"
-  version = "v1.5.0"
+  revision = "7f08801859139f86dfafd1c296e2cba9a80d292e"
+  version = "v1.6.0"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -124,8 +124,8 @@
 [[projects]]
   name = "github.com/preichenberger/go-gdax"
   packages = ["."]
-  revision = "94264b146fc3e88c154a00dbda38f3760efd181d"
-  version = "0.3.1"
+  revision = "77508b321c9785d9d8d804d564794d5bf6d4283e"
+  version = "0.3.3"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -137,13 +137,13 @@
   branch = "master"
   name = "github.com/prometheus/client_model"
   packages = ["go"]
-  revision = "6f3806018612930941127f2a7c6c453ba2c527d2"
+  revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
 
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/common"
   packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
-  revision = "e3fb1a1acd7605367a2b378bc2e2f893c05174b7"
+  revision = "2e54d0b93cba2fd133edc32211dcc32c06ef72ca"
 
 [[projects]]
   branch = "master"
@@ -170,10 +170,10 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/spf13/afero"
   packages = [".","mem"]
-  revision = "5660eeed305fe5f69c8fc6cf899132a459a97064"
+  revision = "8d919cbe7e2627e417f3e45c3c0e489a5b7e2536"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/spf13/cast"
@@ -206,6 +206,12 @@
   version = "v1.1.4"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/toolsparty/regression"
+  packages = ["."]
+  revision = "611e0b7a73f016ee5448cd740cf472077a7cd120"
+
+[[projects]]
   name = "github.com/zenazn/goji"
   packages = ["web/mutil"]
   revision = "64eb34159fe53473206c2b3e70fe396a639452f2"
@@ -215,23 +221,29 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "8eb05f94d449fdf134ec24630ce69ada5b469c1c"
+  revision = "76c138986e66b22cbf82122ac886457fb5226957"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
-  revision = "88f656faf3f37f690df1a32515b479415e1a6769"
+  revision = "c4d099d611ac3ded35360abf03581e13d91c828f"
+
+[[projects]]
+  branch = "master"
+  name = "gonum.org/v1/gonum"
+  packages = ["blas","blas/blas64","blas/gonum","floats","internal/asm/c128","internal/asm/f32","internal/asm/f64","internal/math32","lapack","lapack/gonum","lapack/lapack64","mat"]
+  revision = "2b530dd15c643f2e931d95f318a5c5c7ab2c1a3c"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
+  revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "41d8d959542e600b7cf481e0f508bc9fa22130d81bde75b4657b515b3f5aa461"
+  inputs-digest = "2ce2c9e95275f026a52dadbf7dbc076d34c3565e0899a8cee11b49cd93430d4a"
   solver-name = "gps-cdcl"
   solver-version = 1

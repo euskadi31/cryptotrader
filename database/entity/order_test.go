@@ -26,7 +26,7 @@ func TestOrder(t *testing.T) {
 	assert.Equal(t, 3356.7477679305716, o.GetBuyingMarketPrice())
 	assert.Equal(t, 634.49807589, o.GetCurrentPrice(marketPrice))
 	assert.Equal(t, 484.49807589, o.GetMarginInCurrency(marketPrice))
-	assert.Equal(t, 23.640733628639847, o.GetMarginInPercent(marketPrice))
+	assert.Equal(t, 322.99871726, o.GetMarginInPercent(marketPrice))
 }
 
 func BenchmarkOrderGetBuyingMarketPrice(b *testing.B) {

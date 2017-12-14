@@ -30,17 +30,24 @@ type DataPoint struct {
 // Timeseries struct
 type Timeseries struct {
 	*sync.RWMutex
+	size   int
 	times  []int64
 	values []float64
 }
 
 // New Timeseries
-func New() *Timeseries {
+func New(size int) *Timeseries {
 	return &Timeseries{
 		RWMutex: &sync.RWMutex{},
 		times:   []int64{},
 		values:  []float64{},
+		size:    size,
 	}
+}
+
+// Size of timeseries
+func (ts *Timeseries) Size() int {
+	return len(ts.values)
 }
 
 // Add DataPoint to Timeseries
@@ -48,17 +55,41 @@ func (ts *Timeseries) Add(t int64, v float64) {
 	ts.Lock()
 	ts.times = append(ts.times, t)
 	ts.values = append(ts.values, v)
+
+	length := len(ts.times)
+
+	if length > ts.size {
+		ts.times = ts.times[length-ts.size:]
+		ts.values = ts.values[length-ts.size:]
+	}
+
 	ts.Unlock()
 }
 
 // Keys slice
 func (ts Timeseries) Keys() []int64 {
-	return ts.times
+	keys := []int64{}
+
+	ts.RLock()
+	for _, k := range ts.times {
+		keys = append(keys, k)
+	}
+	ts.RUnlock()
+
+	return keys
 }
 
 // Values slice
 func (ts Timeseries) Values() []float64 {
-	return ts.values
+	values := []float64{}
+
+	ts.RLock()
+	for _, v := range ts.values {
+		values = append(values, v)
+	}
+	ts.RUnlock()
+
+	return values
 }
 
 // MaxValue of Timeseries
@@ -75,7 +106,7 @@ func (ts Timeseries) MaxValue() float64 {
 }
 
 // All DataPoint in Timeseries
-func (ts *Timeseries) All() []*DataPoint {
+func (ts Timeseries) All() []*DataPoint {
 	datas := []*DataPoint{}
 
 	ts.RLock()
@@ -97,7 +128,7 @@ func (ts Timeseries) GetLatestValues(size int) []float64 {
 	length := len(ts.values)
 
 	if length < size {
-		return ts.values
+		return ts.Values()
 	}
 
 	ts.RLock()
@@ -114,11 +145,11 @@ func (ts Timeseries) GetTrending(size int) (TrendType, error) {
 		return TrendTypeNeutral, err
 	}
 
-	theta := reg.GetTheta()
+	slope := reg.GetK()
 
-	if theta > 0 {
+	if slope > 0 {
 		return TrendTypeIncreasing, nil
-	} else if theta < 0 {
+	} else if slope < 0 {
 		return TrendTypeDecreasing, nil
 	}
 

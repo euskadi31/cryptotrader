@@ -18,8 +18,9 @@ import (
 	"github.com/euskadi31/cryptotrader/controllers"
 	"github.com/euskadi31/cryptotrader/exchanges"
 	"github.com/euskadi31/cryptotrader/exchanges/gdax"
-	"github.com/euskadi31/cryptotrader/timeseries"
+	"github.com/euskadi31/cryptotrader/services"
 	"github.com/euskadi31/cryptotrader/trader"
+	"github.com/euskadi31/cryptotrader/trader/algorithms"
 	"github.com/euskadi31/go-server"
 	"github.com/euskadi31/go-service"
 	"github.com/rs/cors"
@@ -34,14 +35,18 @@ var container = service.New()
 
 // const of service name
 const (
-	ServiceLoggerKey          string = "service.logger"
-	ServiceConfigKey                 = "service.config"
-	ServiceRouterKey                 = "service.router"
-	ServiceDBKey                     = "service.db.storm"
-	ServiceExchangeManagerKey        = "service.exchange.manager"
-	ServiceGDAXExchangeKey           = "service.exchange.gdax"
-	ServiceTimeseriesKey             = "service.timeseries"
-	ServiceTraderEngineKey           = "service.trader.engine"
+	ServiceLoggerKey           string = "service.logger"
+	ServiceConfigKey                  = "service.config"
+	ServiceRouterKey                  = "service.router"
+	ServiceDBKey                      = "service.db.storm"
+	ServiceExchangeManagerKey         = "service.exchange.manager"
+	ServiceGDAXExchangeKey            = "service.exchange.gdax"
+	ServiceTimeseriesKey              = "service.timeseries"
+	ServiceTraderEngineKey            = "service.trader.engine"
+	ServiceAlgorithmManagerKey        = "service.algorithm.manager"
+	ServiceAlgorithmTrendKey          = "service.algorithm.trend"
+	ServiceCampaignKey                = "service.campaign"
+	ServiceOrderKey                   = "service.order"
 )
 
 func init() {
@@ -135,10 +140,6 @@ func init() {
 		return ex
 	})
 
-	container.Set(ServiceTimeseriesKey, func(c *service.Container) interface{} {
-		return timeseries.New()
-	})
-
 	container.Set(ServiceExchangeManagerKey, func(c *service.Container) interface{} {
 		manager := exchanges.NewManager()
 
@@ -147,19 +148,47 @@ func init() {
 		return manager
 	})
 
+	container.Set(ServiceAlgorithmTrendKey, func(c *service.Container) interface{} {
+		campaignService := c.Get(ServiceCampaignKey).(*services.CampaignService)
+		orderService := c.Get(ServiceOrderKey).(*services.OrderService)
+
+		return algorithms.NewTrend(campaignService, orderService)
+	})
+
+	container.Set(ServiceAlgorithmManagerKey, func(c *service.Container) interface{} {
+		manager := algorithms.NewManager()
+
+		manager.Add(c.Get(ServiceAlgorithmTrendKey).(algorithms.Algorithm))
+
+		return manager
+	})
+
+	container.Set(ServiceCampaignKey, func(c *service.Container) interface{} {
+		db := c.Get(ServiceDBKey).(*storm.DB)
+
+		return services.NewCampaignService(db)
+	})
+
+	container.Set(ServiceOrderKey, func(c *service.Container) interface{} {
+		db := c.Get(ServiceDBKey).(*storm.DB)
+
+		return services.NewOrderService(db)
+	})
+
 	container.Set(ServiceTraderEngineKey, func(c *service.Container) interface{} {
 		db := c.Get(ServiceDBKey).(*storm.DB)
-		manager := c.Get(ServiceExchangeManagerKey).(exchanges.Manager)
+		exchangesManager := c.Get(ServiceExchangeManagerKey).(exchanges.Manager)
+		algorithmsManager := c.Get(ServiceAlgorithmManagerKey).(algorithms.Manager)
 
-		return trader.NewEngine(db, manager)
+		return trader.NewEngine(db, exchangesManager, algorithmsManager)
 	})
 
 	container.Set(ServiceRouterKey, func(c *service.Container) interface{} {
 		logger := c.Get(ServiceLoggerKey).(zerolog.Logger)
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
-		ts := c.Get(ServiceTimeseriesKey).(*timeseries.Timeseries)
 		db := c.Get(ServiceDBKey).(*storm.DB)
 		engine := c.Get(ServiceTraderEngineKey).(*trader.Engine)
+		algorithmsManager := c.Get(ServiceAlgorithmManagerKey).(algorithms.Manager)
 
 		corsHandler := cors.New(cors.Options{
 			AllowCredentials: false,
@@ -179,6 +208,15 @@ func init() {
 		})
 
 		router := server.NewRouter()
+		router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Error().Msgf("%s %s not found", r.Method, r.URL.Path)
+
+			server.JSON(w, http.StatusNotFound, map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": fmt.Sprintf("%s %s not found", r.Method, r.URL.Path),
+				},
+			})
+		})
 
 		router.Use(hlog.NewHandler(logger))
 		router.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
@@ -198,61 +236,9 @@ func init() {
 
 		router.EnableHealthCheck()
 
-		router.AddController(controllers.NewTimeseriesController(ts))
+		router.AddController(controllers.NewTimeseriesController(engine))
 		router.AddController(controllers.NewCampaignController(db, engine))
-
-		/*
-			ex := c.Get(ServiceGDAXExchangeKey).(exchanges.ExchangeProvider)
-
-			go func() {
-				file, err := os.OpenFile("history.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
-				if err != nil {
-					log.Error().Err(err).Msg("")
-				}
-				defer file.Close()
-
-				writer := csv.NewWriter(file)
-				defer writer.Flush()
-
-				log.Info().Msg("Call Ticker")
-				c, err := ex.Ticker(
-					exchanges.NewProduct("BTC", "EUR"),
-					exchanges.NewProduct("ETH", "EUR"),
-					exchanges.NewProduct("LTC", "EUR"),
-				)
-				if err != nil {
-					log.Error().Err(err).Msg("")
-				}
-
-				for ticker := range c {
-					if ticker.Time.IsZero() {
-						continue
-					}
-
-					ts.Add(ticker.Time.Unix(), ticker.Price)
-
-					if err := writer.Write([]string{
-						fmt.Sprintf("%d", ticker.Time.Unix()),
-						fmt.Sprintf("%f", ticker.Price),
-					}); err != nil {
-						log.Error().Err(err).Msg("CSV write failed")
-					}
-
-					writer.Flush()
-
-					msg := log.Info().
-						Str("side", string(ticker.Side)).
-						Float64("volume", ticker.Size).
-						Time("time", ticker.Time)
-
-					if ticker.Side == exchanges.SideTypeSell {
-						msg.Msgf("%s Price: %f ↘", ticker.Product.From, ticker.Price)
-					} else {
-						msg.Msgf("%s Price: %f ↗", ticker.Product.From, ticker.Price)
-					}
-				}
-			}()
-		*/
+		router.AddController(controllers.NewAlgorithmController(algorithmsManager))
 
 		return router
 	})
