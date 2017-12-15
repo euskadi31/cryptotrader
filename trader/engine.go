@@ -168,22 +168,30 @@ func (e *Engine) trade(provider string, event *exchanges.TickerEvent, ts *timese
 	}
 
 	for _, campaign := range campaigns {
-		// @TODO: use campaign.Algorithm for get algo
-		algo, err := e.algorithms.Get("trend")
-		if err != nil {
-			log.Error().Err(err).Msg("Get algo failed")
-
-			continue
-		}
-
 		campaign.Orders = []*entity.Order{}
 
 		// todo populate order into campaign
 
 		if campaign.IsState(entity.CampaignStateBuy) {
+			// @TODO: use campaign.BuyAlgorithm for get algo
+			algo, err := e.algorithms.Get("trend")
+			if err != nil {
+				log.Error().Err(err).Msg("Get algo failed")
+
+				continue
+			}
+
 			algo.Buy(event, campaign, ts)
 			// e.tradeBuying(provider, event, campaign, ts)
 		} else {
+			// @TODO: use campaign.SellAlgorithm for get algo
+			algo, err := e.algorithms.Get("trend")
+			if err != nil {
+				log.Error().Err(err).Msg("Get algo failed")
+
+				continue
+			}
+
 			algo.Sell(event, campaign, ts)
 
 			// e.tradeSelling(provider, event, campaign, ts)

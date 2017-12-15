@@ -57,47 +57,50 @@ func (a *Trend) Buy(event *exchanges.TickerEvent, campaign *entity.Campaign, ts 
 		return
 	}
 
-	if event.Price < campaign.BuyLimit {
-		campaign.State = entity.CampaignStateBuying
-
-		if err := a.campaignService.Save(campaign); err != nil {
-			log.Error().Err(err).Msg("Save Campaign")
-		}
-
-		log.Warn().Msgf("Buying %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
-
-		// emulate buying start ----
-		order := &entity.Order{
-			Provider:  campaign.Provider,
-			Side:      exchanges.SideTypeBuy,
-			ProductID: campaign.ProductID,
-			Size:      campaign.Volume,
-			Price:     campaign.Volume * event.Price,
-		}
-
-		if err := a.orderService.Save(order); err != nil {
-			log.Error().Err(err).Msg("save order failed")
-
-			return
-		}
-
-		campaign.State = entity.CampaignStateSell
-
-		campaign.BuyOrder = order
-		// campaign.AddOrder(order)
-
-		if err := a.campaignService.Save(campaign); err != nil {
-			log.Error().Err(err).Msg("Save Campaign")
-		}
-		// end emulate
+	if event.Price >= campaign.BuyLimit {
+		return
 	}
+
+	options := a.Options()
+	options.Merge(campaign.BuyAlgorithmOptions)
+
+	campaign.State = entity.CampaignStateBuying
+
+	if err := a.campaignService.Save(campaign); err != nil {
+		log.Error().Err(err).Msg("Save Campaign")
+	}
+
+	log.Warn().Msgf("Buying %f %s at %f %s", campaign.Volume, event.Product.From, event.Price, event.Product.To)
+
+	// emulate buying start ----
+	order := &entity.Order{
+		Provider:  campaign.Provider,
+		Side:      exchanges.SideTypeBuy,
+		ProductID: campaign.ProductID,
+		Size:      campaign.Volume,
+		Price:     campaign.Volume * event.Price,
+	}
+
+	if err := a.orderService.Save(order); err != nil {
+		log.Error().Err(err).Msg("save order failed")
+
+		return
+	}
+
+	campaign.State = entity.CampaignStateSell
+
+	campaign.BuyOrder = order
+	// campaign.AddOrder(order)
+
+	if err := a.campaignService.Save(campaign); err != nil {
+		log.Error().Err(err).Msg("Save Campaign")
+	}
+	// end emulate
+
 }
 
 // Sell implements Algorithm interface
 func (a *Trend) Sell(event *exchanges.TickerEvent, campaign *entity.Campaign, ts *timeseries.Timeseries) {
-	options := a.Options()
-	options.Merge(campaign.AlgorithmOptions)
-
 	switch campaign.SellLimitUnit {
 	case "percent":
 		log.Debug().Msgf("Current Price: %v", event.Price)
@@ -121,6 +124,9 @@ func (a *Trend) Sell(event *exchanges.TickerEvent, campaign *entity.Campaign, ts
 
 		return
 	}
+
+	options := a.Options()
+	options.Merge(campaign.SellAlgorithmOptions)
 
 	longTrendSize := options.GetInt(TrendSellingLongTrendSize)
 	shortTrendSize := options.GetInt(TrendSellingShortTrendSize)
