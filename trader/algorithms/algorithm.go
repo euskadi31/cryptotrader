@@ -16,11 +16,15 @@ import (
 type Algorithm interface {
 	json.Marshaler
 
+	// Name of Algorithm
 	Name() string
 
+	// Options of Algorithm
 	Options() Options
 
+	// Buy Algorithm
 	Buy(event *exchanges.TickerEvent, campaign *entity.Campaign, ts *timeseries.Timeseries)
 
+	// Sell Algorithm
 	Sell(event *exchanges.TickerEvent, campaign *entity.Campaign, ts *timeseries.Timeseries)
 }

@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/euskadi31/cryptotrader/trader/algorithms"
-
-	"github.com/euskadi31/cryptotrader/timeseries"
-
 	"github.com/asdine/storm"
 	"github.com/asdine/storm/q"
 	"github.com/euskadi31/cryptotrader/database/entity"
 	"github.com/euskadi31/cryptotrader/exchanges"
+	"github.com/euskadi31/cryptotrader/timeseries"
+	"github.com/euskadi31/cryptotrader/trader/algorithms"
+	"github.com/euskadi31/go-eventemitter"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,6 +34,7 @@ type Engine struct {
 	db          *storm.DB
 	providers   exchanges.Manager
 	algorithms  algorithms.Manager
+	emitter     eventemitter.EventEmitter
 	tickers     map[string]exchanges.TickerProvider
 	timeseries  map[string]*timeseries.Timeseries
 	runTickerCh chan *RunTickerEvent
@@ -43,11 +43,17 @@ type Engine struct {
 }
 
 // NewEngine trader
-func NewEngine(db *storm.DB, providers exchanges.Manager, algorithms algorithms.Manager) *Engine {
+func NewEngine(
+	db *storm.DB,
+	providers exchanges.Manager,
+	algorithms algorithms.Manager,
+	emitter eventemitter.EventEmitter,
+) *Engine {
 	return &Engine{
 		db:          db,
 		providers:   providers,
 		algorithms:  algorithms,
+		emitter:     emitter,
 		tickers:     make(map[string]exchanges.TickerProvider),
 		timeseries:  make(map[string]*timeseries.Timeseries),
 		runTickerCh: make(chan *RunTickerEvent),
@@ -237,6 +243,8 @@ func (e *Engine) processEventChannel() {
 					ts.Add(event.Time.Unix(), event.Price)
 
 					e.trade(evt.Provider, event, ts)
+
+					e.emitter.Dispatch(fmt.Sprintf("ticker-%s", key), event)
 				}
 			}()
 

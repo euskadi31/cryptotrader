@@ -7,3 +7,5 @@ var/
 cryptotrader
 config.yml
 history.csv
+
+node_modules

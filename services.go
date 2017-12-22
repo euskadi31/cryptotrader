@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package main
+package cryptotrader
 
 import (
 	"flag"
@@ -21,6 +21,7 @@ import (
 	"github.com/euskadi31/cryptotrader/services"
 	"github.com/euskadi31/cryptotrader/trader"
 	"github.com/euskadi31/cryptotrader/trader/algorithms"
+	"github.com/euskadi31/go-eventemitter"
 	"github.com/euskadi31/go-server"
 	"github.com/euskadi31/go-service"
 	"github.com/rs/cors"
@@ -29,6 +30,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
+
+const applicationName = "cryptotrader"
 
 // Service Container
 var container = service.New()
@@ -47,6 +50,7 @@ const (
 	ServiceAlgorithmTrendKey          = "service.algorithm.trend"
 	ServiceCampaignKey                = "service.campaign"
 	ServiceOrderKey                   = "service.order"
+	ServiceEventEmitterKey            = "service.eventemitter"
 )
 
 func init() {
@@ -116,6 +120,10 @@ func init() {
 		return config.NewConfiguration(options)
 	})
 
+	container.Set(ServiceEventEmitterKey, func(c *service.Container) interface{} {
+		return eventemitter.New()
+	})
+
 	container.Set(ServiceDBKey, func(c *service.Container) interface{} {
 		cfg := c.Get(ServiceConfigKey).(*config.Configuration)
 
@@ -179,8 +187,9 @@ func init() {
 		db := c.Get(ServiceDBKey).(*storm.DB)
 		exchangesManager := c.Get(ServiceExchangeManagerKey).(exchanges.Manager)
 		algorithmsManager := c.Get(ServiceAlgorithmManagerKey).(algorithms.Manager)
+		emitter := c.Get(ServiceEventEmitterKey).(eventemitter.EventEmitter)
 
-		return trader.NewEngine(db, exchangesManager, algorithmsManager)
+		return trader.NewEngine(db, exchangesManager, algorithmsManager, emitter)
 	})
 
 	container.Set(ServiceRouterKey, func(c *service.Container) interface{} {
@@ -189,9 +198,44 @@ func init() {
 		db := c.Get(ServiceDBKey).(*storm.DB)
 		engine := c.Get(ServiceTraderEngineKey).(*trader.Engine)
 		algorithmsManager := c.Get(ServiceAlgorithmManagerKey).(algorithms.Manager)
+		emitter := c.Get(ServiceEventEmitterKey).(eventemitter.EventEmitter)
 
-		corsHandler := cors.New(cors.Options{
-			AllowCredentials: false,
+		router := server.NewRouter()
+
+		router.Use(hlog.NewHandler(logger))
+		router.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+			rlog := hlog.FromRequest(r)
+
+			var evt *zerolog.Event
+
+			switch {
+			case status >= 200 && status <= 299:
+				evt = rlog.Info()
+			case status >= 300 && status <= 399:
+				evt = rlog.Info()
+			case status >= 400 && status <= 499:
+				evt = rlog.Warn()
+			default:
+				evt = rlog.Error()
+			}
+
+			evt.
+				Str("method", r.Method).
+				Str("url", r.URL.String()).
+				Int("status", status).
+				Int("size", size).
+				Dur("duration", duration).
+				Msgf("%s %s", r.Method, r.URL.Path)
+		}))
+		router.Use(hlog.RemoteAddrHandler("ip"))
+		router.Use(hlog.UserAgentHandler("user_agent"))
+		router.Use(hlog.RefererHandler("referer"))
+		router.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
+
+		router.EnableRecovery()
+		router.EnableHealthCheck()
+		router.EnableCorsWithOptions(cors.Options{
+			AllowCredentials: true,
 			AllowedOrigins:   []string{"*"},
 			AllowedMethods: []string{
 				http.MethodGet,
@@ -203,14 +247,12 @@ func init() {
 			AllowedHeaders: []string{
 				"Authorization",
 				"Content-Type",
+				"X-Requested-With",
 			},
 			Debug: cfg.Server.Debug,
 		})
 
-		router := server.NewRouter()
-		router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Error().Msgf("%s %s not found", r.Method, r.URL.Path)
-
+		router.SetNotFoundFunc(func(w http.ResponseWriter, r *http.Request) {
 			server.JSON(w, http.StatusNotFound, map[string]interface{}{
 				"error": map[string]interface{}{
 					"message": fmt.Sprintf("%s %s not found", r.Method, r.URL.Path),
@@ -218,28 +260,40 @@ func init() {
 			})
 		})
 
-		router.Use(hlog.NewHandler(logger))
-		router.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
-			hlog.FromRequest(r).Info().
-				Str("method", r.Method).
-				Str("url", r.URL.String()).
-				Int("status", status).
-				Int("size", size).
-				Dur("duration", duration).
-				Msg("")
-		}))
-		router.Use(hlog.RemoteAddrHandler("ip"))
-		router.Use(hlog.UserAgentHandler("user_agent"))
-		router.Use(hlog.RefererHandler("referer"))
-		router.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
-		router.Use(corsHandler.Handler)
-
-		router.EnableHealthCheck()
-
-		router.AddController(controllers.NewTimeseriesController(engine))
+		router.AddController(controllers.NewTimeseriesController(engine, emitter))
 		router.AddController(controllers.NewCampaignController(db, engine))
 		router.AddController(controllers.NewAlgorithmController(algorithmsManager))
+		router.AddController(controllers.NewUIController())
 
 		return router
 	})
+}
+
+// Run Application
+func Run() {
+	_ = container.Get(ServiceLoggerKey).(zerolog.Logger)
+	cfg := container.Get(ServiceConfigKey).(*config.Configuration)
+
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+
+	emitter := container.Get(ServiceEventEmitterKey).(eventemitter.EventEmitter)
+	router := container.Get(ServiceRouterKey).(*server.Router)
+
+	engine := container.Get(ServiceTraderEngineKey).(*trader.Engine)
+
+	go func() {
+		log.Info().Msg("Starting trader engine...")
+
+		engine.Start()
+	}()
+
+	log.Info().Msgf("Server running on %s", addr)
+
+	if err := http.ListenAndServe(addr, router); err != nil {
+		log.Fatal().Err(err).Msg("ListenAndServe")
+	}
+
+	emitter.Wait()
+
+	log.Info().Msg("Server exited")
 }

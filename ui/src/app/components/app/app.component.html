@@ -1,0 +1,30 @@
+
+<clr-main-container>
+    <clr-header>
+        <div class="branding">
+            <a class="logo-and-title" routerlink="/" href="/">
+                <span class="title">Cryptotrader</span>
+            </a>
+        </div>
+
+        <div class="header-actions">
+        </div>
+    </clr-header>
+
+    <div class="content-container">
+        <div class="content-area">
+            <router-outlet></router-outlet>
+        </div>
+
+        <clr-vertical-nav [clrVerticalNavCollapsible]="collapsible" [(clrVerticalNavCollapsed)]="collapsed">
+            <a clrVerticalNavLink routerLink="/" routerLinkActive="active">
+                <clr-icon clrVerticalNavIcon shape="dashboard"></clr-icon>
+                Campaigns
+            </a>
+            <a clrVerticalNavLink routerLink="/history" routerLinkActive="active">
+                <clr-icon clrVerticalNavIcon shape="organization"></clr-icon>
+                History
+            </a>
+        </clr-vertical-nav>
+    </div>
+</clr-main-container>

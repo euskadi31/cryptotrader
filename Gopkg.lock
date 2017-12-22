@@ -27,15 +27,27 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/euskadi31/go-eventemitter"
+  packages = ["."]
+  revision = "c0588ce09d449fafa449bf9f8c4953e0170d0618"
+
+[[projects]]
+  branch = "master"
   name = "github.com/euskadi31/go-server"
   packages = [".","metrics"]
-  revision = "d27d03500d37057371540f63716eaf4677b27cc6"
+  revision = "9640a721975f0e6de59f994c2fd456519353d003"
 
 [[projects]]
   branch = "master"
   name = "github.com/euskadi31/go-service"
   packages = ["."]
   revision = "a5fa5feaf5ad54fa1f35e09aba36b9592262d43e"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/euskadi31/go-sse"
+  packages = ["."]
+  revision = "ccfe5887a1039478022b844538005286b854892c"
 
 [[projects]]
   branch = "master"
@@ -94,8 +106,8 @@
 [[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
-  revision = "be5ece7dd465ab0765a9682137865547526d1dfb"
-  version = "v1.7.3"
+  revision = "d419a98cdbed11a922bf76f257b7c4be79b50e73"
+  version = "v1.7.4"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -221,19 +233,19 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "76c138986e66b22cbf82122ac886457fb5226957"
+  revision = "d5840adf789d732bc8b00f37b26ca956a7cc8e79"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
-  revision = "c4d099d611ac3ded35360abf03581e13d91c828f"
+  revision = "d5a9226ed7dd70cade6ccae9d37517fe14dd9fee"
 
 [[projects]]
   branch = "master"
   name = "gonum.org/v1/gonum"
   packages = ["blas","blas/blas64","blas/gonum","floats","internal/asm/c128","internal/asm/f32","internal/asm/f64","internal/math32","lapack","lapack/gonum","lapack/lapack64","mat"]
-  revision = "2b530dd15c643f2e931d95f318a5c5c7ab2c1a3c"
+  revision = "ad5995341f50f70b5f9667a5409d7c1d1005ab14"
 
 [[projects]]
   branch = "v2"
@@ -244,6 +256,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ce2c9e95275f026a52dadbf7dbc076d34c3565e0899a8cee11b49cd93430d4a"
+  inputs-digest = "03477b2dfa239ea98c9f87f439c095184c9b4ad6fcc5d60957e0f086996858ee"
   solver-name = "gps-cdcl"
   solver-version = 1

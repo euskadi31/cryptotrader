@@ -21,7 +21,7 @@ const (
 
 // Campaign struct
 type Campaign struct {
-	ID                   int                    `storm:"id,increment"`
+	ID                   int                    `storm:"id,increment" json:"id"`
 	Provider             string                 `storm:"index" json:"provider"`
 	ProviderRef          string                 `json:"provider_ref"`
 	ProductID            string                 `storm:"index" json:"product_id"`

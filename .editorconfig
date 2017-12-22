@@ -25,3 +25,6 @@ indent_size = 2
 
 [*.yml.dist]
 indent_size = 2
+
+[.angular-cli.json]
+indent_size = 2

@@ -1,0 +1,27 @@
+<h1>Campaigns</h1>
+
+<div #chart>
+    chart target
+</div>
+
+<clr-datagrid (clrDgRefresh)="refresh($event)" [clrDgLoading]="loading">
+    <clr-dg-column>Campaign ID</clr-dg-column>
+    <clr-dg-column>Provider</clr-dg-column>
+    <clr-dg-column>Product</clr-dg-column>
+    <clr-dg-column>Volume</clr-dg-column>
+    <clr-dg-column>Status</clr-dg-column>
+
+    <clr-dg-row *ngFor="let campaign of campaigns">
+        <clr-dg-cell>{{ campaign.id }}</clr-dg-cell>
+        <clr-dg-cell>{{ campaign.provider }}</clr-dg-cell>
+        <clr-dg-cell>{{ campaign.product_id }}</clr-dg-cell>
+        <clr-dg-cell>{{ campaign.volume }}</clr-dg-cell>
+        <clr-dg-cell>{{ campaign.state }}</clr-dg-cell>
+    </clr-dg-row>
+
+    <clr-dg-footer>
+        {{ pagination.firstItem + 1 }} - {{ pagination.lastItem + 1 }}
+        of {{ total }} users
+        <clr-dg-pagination #pagination [clrDgTotalItems]="total"></clr-dg-pagination>
+    </clr-dg-footer>
+</clr-datagrid>

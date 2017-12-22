@@ -20,11 +20,11 @@ const (
 
 // TickerEvent struct
 type TickerEvent struct {
-	Product Product
-	Price   float64
-	Side    SideType
-	Time    time.Time
-	Size    float64
+	Product Product   `json:"product"`
+	Price   float64   `json:"price"`
+	Side    SideType  `json:"side"`
+	Time    time.Time `json:"time"`
+	Size    float64   `json:"size"`
 }
 
 // OrderEvent struct

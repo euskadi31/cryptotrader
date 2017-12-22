@@ -5,7 +5,7 @@ IMAGE ?= euskadi31/$(EXECUTABLE)
 VERSION ?= $(shell git describe --match 'v[0-9]*' --dirty='-dev' --always)
 COMMIT ?= $(shell git rev-parse --short HEAD)
 
-LDFLAGS = -X "main.Revision=$(COMMIT)" -X "main.Version=$(VERSION)"
+LDFLAGS = -X "cryptotrader.Revision=$(COMMIT)" -X "cryptotrader.Version=$(VERSION)"
 PACKAGES = $(shell go list ./... | grep -v /vendor/)
 
 release:
@@ -64,7 +64,7 @@ bindata.go: docs/index.html docs/swagger.yaml
 
 $(EXECUTABLE): $(shell find . -type f -print | grep -v vendor | grep "\.go")
 	@echo "Building $(EXECUTABLE)..."
-	@CGO_ENABLED=0 go build -ldflags '-s -w $(LDFLAGS)'
+	@CGO_ENABLED=0 go build -ldflags '-s -w $(LDFLAGS)' ./cmd/cryptotrader/
 
 build: $(EXECUTABLE)
 
